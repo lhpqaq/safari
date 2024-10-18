@@ -1,6 +1,7 @@
 use std::process::Command;
 use std::str;
-mod utils;
+pub mod utils;
+
 pub fn get_safari_windows() -> Result<String, String> {
     let script = r#"
         tell application "Safari"

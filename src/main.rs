@@ -1,20 +1,16 @@
 use safari::*;
 
 fn main() {
-    // match get_safari_active_tabs() {
-    //     Ok(active_tabs) => println!("Active tabs in Safari windows: \n{}", active_tabs),
-    //     Err(e) => eprintln!("Error fetching active Safari tabs: {}", e),
-    // }
-    // match get_safari_windows() {
-    //     Ok(windows) => println!("Open Safari windows and tabs: \n{}", windows),
-    //     Err(e) => eprintln!("Error fetching Safari windows: {}", e),
-    // }
-    // match get_safari_windows_and_tabs() {
-    //     Ok(windows) => println!("Open Safari windows and tabs: \n{}", windows),
-    //     Err(e) => eprintln!("Error fetching Safari windows and tabs: {}", e),
-    // }
+    let file_path = "safari.json";
     match get_safari_windows_and_tabs_as_json() {
-        Ok(json_output) => println!("{}", json_output),
+        Ok(json_output) => {
+            utils::save_to_file(&json_output, &file_path).unwrap();
+        }
         Err(e) => eprintln!("Error fetching Safari windows: {}", e),
+    }
+
+    match utils::read_from_file(file_path) {
+        Ok(json_data) => println!("Parsed JSON: {}", json_data),
+        Err(e) => println!("Failed to parse JSON: {}", e),
     }
 }
