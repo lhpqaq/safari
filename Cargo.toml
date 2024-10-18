@@ -1,0 +1,13 @@
+[package]
+name = "safari"
+version = "0.1.0"
+edition = "2021"
+
+# 其他元信息
+description = "A brief description of my library"
+homepage = "https://github.com/username/my_library"  # 项目主页
+repository = "https://github.com/username/my_library"  # 代码仓库链接
+license = "MIT"  # 选择合适的许可证
+
+[dependencies]
+
