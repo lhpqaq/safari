@@ -2,8 +2,9 @@ use safari::*;
 use serde_json::{json, Value};
 use std::env;
 use std::fs;
+use std::io::{self, Write};
 use std::path::PathBuf;
-
+use std::process::Command;
 fn get_time() -> String {
     let now = chrono::Local::now();
     now.format("%Y-%m-%d %H:%M").to_string()
@@ -58,14 +59,153 @@ pub fn reopen() {
     let safari_dir = get_safari_dir();
     let entries = fs::read_dir(&safari_dir).expect("Unable to read directory");
 
+    // 首先列出目录中的所有以 safari_ 开头且以 .json 结尾的文件
+    let mut safari_files = vec![];
+
     for entry in entries {
         let entry = entry.unwrap();
         let path = entry.path();
         let filename = path.file_name().unwrap().to_str().unwrap();
+
         if filename.starts_with("safari_") && filename.ends_with(".json") {
-            let content = fs::read_to_string(&path).expect("Unable to read file");
-            let json_data: Value = serde_json::from_str(&content).unwrap();
-            println!("Parsed JSON: {}", json_data);
+            safari_files.push(filename.to_string());
+        }
+    }
+
+    if safari_files.is_empty() {
+        println!("No Safari session files found.");
+        return;
+    }
+
+    println!("Found the following Safari session files:");
+    for (i, file) in safari_files.iter().enumerate() {
+        println!("{}: {}", i + 1, file);
+    }
+
+    print!("Select a file to parse (input the number): ");
+    io::stdout().flush().unwrap();
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    let selected = input.trim().parse::<usize>().unwrap();
+
+    if selected == 0 || selected > safari_files.len() {
+        println!("Invalid selection.");
+        return;
+    }
+
+    let selected_file = &safari_files[selected - 1];
+    let path = format!("{}/{}", safari_dir, selected_file);
+    let content = fs::read_to_string(&path).expect("Unable to read file");
+
+    let json_data: Value = serde_json::from_str(&content).unwrap();
+    println!("Parsed JSON: {}", json_data);
+
+    let windows = json_data.as_object().unwrap();
+    let mut window_names = vec![];
+    for (key, value) in windows {
+        if key != "time" {
+            window_names.push(key.to_string());
+            println!("{}: {:?}", key, value);
+        }
+    }
+
+    println!("Choose a window to open, or type 'all' to open all windows:");
+    for (i, window) in window_names.iter().enumerate() {
+        println!("{}: {}", i + 1, window);
+    }
+    print!("Your choice: ");
+    io::stdout().flush().unwrap();
+
+    let mut choice = String::new();
+    io::stdin().read_line(&mut choice).unwrap();
+    let choice = choice.trim();
+
+    if choice == "all" {
+        for window in windows {
+            if window.0 != "time" {
+                open_tabs_in_window(window.1.as_array().unwrap());
+            }
+        }
+    } else if let Ok(index) = choice.parse::<usize>() {
+        if index > 0 && index <= window_names.len() {
+            let selected_window = windows.get(&window_names[index - 1]).unwrap();
+            open_tabs_in_window(selected_window.as_array().unwrap());
+        } else {
+            println!("Invalid window selection.");
+        }
+    } else {
+        println!("Invalid input.");
+    }
+}
+
+fn open_tabs_in_window(tabs: &[Value]) {
+    for tab in tabs {
+        let url = &tab["url"].as_str().unwrap();
+        println!("Opening URL: {}", url);
+
+        Command::new("open")
+            .arg(url)
+            .output()
+            .expect("Failed to open URL");
+    }
+}
+
+pub fn list() {
+    let safari_dir = get_safari_dir();
+    let entries = fs::read_dir(&safari_dir).expect("Unable to read directory");
+
+    let mut safari_files = vec![];
+
+    for entry in entries {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        let filename = path.file_name().unwrap().to_str().unwrap();
+
+        if filename.starts_with("safari_") && filename.ends_with(".json") {
+            safari_files.push(filename.to_string());
+        }
+    }
+
+    if safari_files.is_empty() {
+        println!("No Safari session files found.");
+        return;
+    }
+
+    println!("Found the following Safari session files:");
+    for (i, file) in safari_files.iter().enumerate() {
+        println!("{}: {}", i + 1, file);
+    }
+
+    print!("Select a file to parse (input the number): ");
+    io::stdout().flush().unwrap();
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input).unwrap();
+    let selected = input.trim().parse::<usize>().unwrap();
+
+    if selected == 0 || selected > safari_files.len() {
+        println!("Invalid selection.");
+        return;
+    }
+
+    let selected_file = &safari_files[selected - 1];
+    let path = format!("{}/{}", safari_dir, selected_file);
+    let content = fs::read_to_string(&path).expect("Unable to read file");
+
+    let json_data: Value = serde_json::from_str(&content).unwrap();
+
+    let windows = json_data.as_object().unwrap();
+    println!("Safari Windows and Tabs:");
+    for (window, tabs) in windows {
+        if window != "time" {
+            println!("\n{}:", window);
+            let tabs = tabs.as_array().unwrap();
+            for tab in tabs {
+                let title = &tab["title"].as_str().unwrap_or("No Title");
+                let url = &tab["url"].as_str().unwrap();
+                println!("- \x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\", url, title);
+            }
         }
     }
 }
