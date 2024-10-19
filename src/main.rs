@@ -1,16 +1,20 @@
-use safari::*;
+use clap::Command;
+mod internel;
 
 fn main() {
-    let file_path = "safari.json";
-    match get_safari_windows_and_tabs_as_json() {
-        Ok(json_output) => {
-            utils::save_to_file(&json_output, &file_path).unwrap();
-        }
-        Err(e) => eprintln!("Error fetching Safari windows: {}", e),
-    }
+    let matches = Command::new("Safari CheckPoint")
+        .about("Save and restore Safari windows and tabs")
+        .subcommand(Command::new("dump").about("Dump Safari windows and tab"))
+        .subcommand(Command::new("reopen").about("Reopen Safari windows and tabs"))
+        .get_matches();
 
-    match utils::read_from_file(file_path) {
-        Ok(json_data) => println!("Parsed JSON: {}", json_data),
-        Err(e) => println!("Failed to parse JSON: {}", e),
+    match matches.subcommand() {
+        Some(("dump", _sub_matches)) => {
+            internel::dump();
+        }
+        Some(("reopen", _sub_matches)) => {
+            internel::reopen();
+        }
+        _ => eprintln!("Invalid command! Use 'dump' or 'reopen'."),
     }
 }
