@@ -172,6 +172,12 @@ pub fn list() {
         return;
     }
 
+    safari_files.sort_by(|a, b| {
+        let a_time = a.trim_start_matches("safari_").trim_end_matches(".json");
+        let b_time = b.trim_start_matches("safari_").trim_end_matches(".json");
+        b_time.cmp(a_time)
+    });
+
     println!("Found the following Safari session files:");
     for (i, file) in safari_files.iter().enumerate() {
         println!("{}: {}", i + 1, file);
