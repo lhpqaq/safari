@@ -44,22 +44,10 @@ fn get_safari_dir() -> String {
     safari_dir.to_str().unwrap().to_string()
 }
 
-pub fn dump() {
-    let (parsed_json, filename) = get_json();
-    let safari_dir = get_safari_dir();
-    let json_path = format!("{}/{}", safari_dir, filename);
-    fs::write(
-        json_path,
-        serde_json::to_string_pretty(&parsed_json).unwrap(),
-    )
-    .expect("Unable to write file");
-}
-
-pub fn reopen() {
+fn list_safari_files() -> Vec<String> {
     let safari_dir = get_safari_dir();
     let entries = fs::read_dir(&safari_dir).expect("Unable to read directory");
 
-    // 首先列出目录中的所有以 safari_ 开头且以 .json 结尾的文件
     let mut safari_files = vec![];
 
     for entry in entries {
@@ -72,9 +60,19 @@ pub fn reopen() {
         }
     }
 
+    safari_files.sort_by(|a, b| {
+        let a_time = a.trim_start_matches("safari_").trim_end_matches(".json");
+        let b_time = b.trim_start_matches("safari_").trim_end_matches(".json");
+        b_time.cmp(a_time)
+    });
+
+    safari_files
+}
+
+fn select_safari_file(safari_files: &[String]) -> Option<String> {
     if safari_files.is_empty() {
         println!("No Safari session files found.");
-        return;
+        return None;
     }
 
     println!("Found the following Safari session files:");
@@ -91,10 +89,31 @@ pub fn reopen() {
 
     if selected == 0 || selected > safari_files.len() {
         println!("Invalid selection.");
-        return;
+        return None;
     }
 
-    let selected_file = &safari_files[selected - 1];
+    Some(safari_files[selected - 1].clone())
+}
+
+pub fn dump() {
+    let (parsed_json, filename) = get_json();
+    let safari_dir = get_safari_dir();
+    let json_path = format!("{}/{}", safari_dir, filename);
+    fs::write(
+        json_path,
+        serde_json::to_string_pretty(&parsed_json).unwrap(),
+    )
+    .expect("Unable to write file");
+}
+
+pub fn reopen() {
+    let safari_files = list_safari_files();
+    let selected_file = match select_safari_file(&safari_files) {
+        Some(file) => file,
+        None => return,
+    };
+
+    let safari_dir = get_safari_dir();
     let path = format!("{}/{}", safari_dir, selected_file);
     let content = fs::read_to_string(&path).expect("Unable to read file");
 
@@ -152,50 +171,13 @@ fn open_tabs_in_window(tabs: &[Value]) {
 }
 
 pub fn list() {
+    let safari_files = list_safari_files();
+    let selected_file = match select_safari_file(&safari_files) {
+        Some(file) => file,
+        None => return,
+    };
+
     let safari_dir = get_safari_dir();
-    let entries = fs::read_dir(&safari_dir).expect("Unable to read directory");
-
-    let mut safari_files = vec![];
-
-    for entry in entries {
-        let entry = entry.unwrap();
-        let path = entry.path();
-        let filename = path.file_name().unwrap().to_str().unwrap();
-
-        if filename.starts_with("safari_") && filename.ends_with(".json") {
-            safari_files.push(filename.to_string());
-        }
-    }
-
-    if safari_files.is_empty() {
-        println!("No Safari session files found.");
-        return;
-    }
-
-    safari_files.sort_by(|a, b| {
-        let a_time = a.trim_start_matches("safari_").trim_end_matches(".json");
-        let b_time = b.trim_start_matches("safari_").trim_end_matches(".json");
-        b_time.cmp(a_time)
-    });
-
-    println!("Found the following Safari session files:");
-    for (i, file) in safari_files.iter().enumerate() {
-        println!("{}: {}", i + 1, file);
-    }
-
-    print!("Select a file to parse (input the number): ");
-    io::stdout().flush().unwrap();
-
-    let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
-    let selected = input.trim().parse::<usize>().unwrap();
-
-    if selected == 0 || selected > safari_files.len() {
-        println!("Invalid selection.");
-        return;
-    }
-
-    let selected_file = &safari_files[selected - 1];
     let path = format!("{}/{}", safari_dir, selected_file);
     let content = fs::read_to_string(&path).expect("Unable to read file");
 
